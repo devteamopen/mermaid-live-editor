@@ -10,8 +10,11 @@
   import type { DocumentationConfig, EditorMode, Tab, ValidatedState } from '$lib/types';
   import { env } from '$lib/util/env';
   import { inputStateStore, stateStore, updateCodeStore } from '$lib/util/state';
-  import { cmdKey, initHandler, MCBaseURL, syncDiagram } from '$lib/util/util';
+  import { fetchJSON, cmdKey, initHandlerV2, MCBaseURL, syncDiagram } from '$lib/util/util';
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
+  import type { APIResponse } from '$lib/types';
+  import { derived } from 'svelte/store';
 
   const docURLBase = 'https://mermaid.js.org';
   const docMap: DocumentationConfig = {
@@ -113,8 +116,21 @@
     }
   ];
 
+  let apiData: APIResponse = {
+    code: ''
+  }; // Variable to store API response
+
+  const urlParameters = derived(page, ($page) => $page.url.searchParams);
+  const pageId = derived(urlParameters, (parameters) => parameters.get('pageId'));
+  const contentId = derived(urlParameters, (parameters) => parameters.get('contentId'));
+
   onMount(async () => {
-    await initHandler();
+    try {
+      apiData = await fetchJSON(`/api/mermaid/content?pageId=${$pageId}&contentId=${$contentId}`); // Fetch data from the API
+      await initHandlerV2(apiData); // Run initHandler after the data is fetched
+    } catch (error) {
+      console.error('Failed to initialize:', error);
+    }
     const resizer = document.querySelector<HTMLElement>('#resizeHandler');
     const element = document.querySelector<HTMLElement>('#editorPane');
     if (!resizer || !element) {
